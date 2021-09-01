@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  example:
+    #image: drill4j/example:${JS_AGENT_VERSION}
+    hostname: example
+    ports:
+      - '${EXPOSE_PORT}:8080'
+    environment:
+      #${PORT}: '8080'
+      #WAIT_HOSTS: mongo:27017, drill-admin:8090
+      DEBUG: 'drill:*'
+      DEBUG_COLORS: 'true'
+      FORCE_COLOR: '3'
+      DEBUG_LOG_LEVEL: '2'
+    #networks:
+    #- drill4j-dev-network
+#networks:
+#  drill4j-dev-network:

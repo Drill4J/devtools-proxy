@@ -1,0 +1,18 @@
+{
+  "restartable": "rs",
+  "ignore": [".git", "node_modules/**/node_modules", "<node_internals>/**"],
+  "verbose": true,
+  "execMap": {
+    "js": "node"
+  },
+  "watch": ["dist/"],
+  "env": {
+    "PERF_MEASUREMENT_ENABLED": "true",
+    "PERF_DIFFS_ENABLED": "true",
+    "DEBUG": "example:*",
+    "DEBUG_COLORS": "true",
+    "FORCE_COLOR": "3",
+    "DEBUG_LOG_LEVEL": "4"
+  },
+  "ext": "js"
+}
