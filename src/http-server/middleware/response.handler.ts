@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import { ExtendableContext, Next } from 'koa';
-import { Logger } from 'util/logger';
+import { Logger } from '../../util/logger';
 
 export default (logger: Logger) =>
   async function (ctx: ExtendableContext, next: Next): Promise<void> {

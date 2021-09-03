@@ -52,6 +52,6 @@
     "no-continue": 0,
     "no-underscore-dangle": 0,
     "no-console": 0,
-    "func-names": ["warn","never"]
+    "func-names": ["warn", "never"]
   }
 }

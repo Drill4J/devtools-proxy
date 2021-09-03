@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 import Koa from 'koa';
-import { Logger } from 'util/logger';
+import { Logger } from '../../util/logger';
 
 export default (logger: Logger) =>
   async (ctx: Koa.Context, next: Koa.Next): Promise<unknown> => {

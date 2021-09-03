@@ -19,7 +19,7 @@ import Router, { IRouterParamContext } from 'koa-router';
 import cors from '@koa/cors';
 import bodyParser from 'koa-bodyparser';
 
-import getLogger from 'util/logger';
+import getLogger from '../util/logger';
 import createResponseHandler from './middleware/response.handler';
 import createLoggerMiddleware from './middleware/logger';
 
