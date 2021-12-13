@@ -13,24 +13,121 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Server } from 'http';
+import { Command, Domain, Protocol, Parameter } from 'chrome-remote-interface';
+import Router from 'koa-router';
 import * as httpServer from './http-server';
+import devToolsProtocol from './lib/dev-tools-protocol';
+import cdp from './lib/cdp';
+import { camelOrPascalToKebabCase } from './lib';
 
-let server: Server;
-!process.env.DO_NOT_LAUNCH_HTTP_SERVER_ON_STARTUP && init();
-export async function init(): Promise<void> {
-  server = await httpServer.start();
+function main() {
+  addDevToolsRoutes(devToolsProtocol)(httpServer.getRouter());
+
+  httpServer.registerRoutes();
+  httpServer.start();
 }
 
-export async function stop(): Promise<void> {
-  // TODO this looks naive, shouldn't we wait for requests to complete first >_>
-  return new Promise((resolve, reject) =>
-    server.close(err => {
-      if (err) {
-        reject(err);
-        return;
-      }
-      resolve();
+const addDevToolsRoutes = (protocol: Protocol) => (router: Router) => {
+  const routes = convertDevToolsProtocolToHttpRoutes(protocol);
+
+  const routesMap = routes.reduce((a, x) => {
+    // eslint-disable-next-line no-param-reassign
+    a[x.path] = x.meta;
+    return a;
+  }, {});
+
+  /*
+    POST http://cdp-http-proxy/sessions
+    {
+      host: localhost
+      port: 9222
+    }
+    sessionId + CDP client established connection
+  */
+  router.post('/sessions', async ctx => {
+    return cdp.initConnection(ctx.request.body);
+  });
+
+  /*
+    // https://chromedevtools.github.io/devtools-protocol/
+    POST http://cdp-http-proxy/sessions/:sessionId/:domain/:command
+    {
+      foo: bar
+    }
+  */
+  routes.forEach(x =>
+    router.post(`/sessions/:sessionId/${x.path}`, async ctx => {
+      const { sessionId } = ctx.params;
+      const { domain, command } = routesMap[x.path].original;
+      // TODO validate agains protocol schema
+      const params = ctx.request.body;
+      return cdp.sendCommand(sessionId, domain, command, params);
     }),
   );
-}
+};
+
+// NOTE: had to patch out "type?" property to "string" instead of TypeEnum
+// for TypeElement, Parameter and Items property
+// was: type?: TypeEnum | undefined;`
+// now: type?: string;
+// TODO: figure out how to cast it properly?
+const convertDevToolsProtocolToHttpRoutes = (protocol: Protocol) => {
+  return protocol.domains.map(domain => domain.commands.map(commandToRoute(domain.domain))).flat();
+};
+
+export type CDPRouteMetadata = {
+  original: {
+    domain: any;
+    command: string;
+  };
+  name: string;
+  description?: string;
+  experimental?: boolean;
+  parameters?: Parameter[];
+  returns?: Parameter[];
+  redirect?: string;
+  deprecated?: boolean;
+};
+
+const commandToRoute =
+  domainName =>
+  (command: Command): { path: string; meta: CDPRouteMetadata } => {
+    const commandName = camelOrPascalToKebabCase(command.name);
+    const result = {
+      path: `${camelOrPascalToKebabCase(domainName)}/${commandName}`,
+      meta: {
+        ...command,
+        original: {
+          domain: domainName,
+          command: command.name,
+        },
+      },
+    };
+
+    if (Array.isArray(command.parameters)) {
+      result.meta.parameters = command.parameters?.map(x => {
+        if (x.$ref) {
+          return {
+            ...x,
+            type: lookupRefType(domainName, x.$ref) as any, // TS is giving me trouble, no time to fix it :(
+          };
+        }
+        return x;
+      });
+    }
+    return result;
+  };
+
+const lookupRefType = (parentDomain, typeString: string) => {
+  let [domain, type] = typeString.split('.');
+
+  // TODO rewrite to check for absence of "." (no dot -> no domain -> this is a type in current domain)
+  if (!type) {
+    type = domain;
+    domain = parentDomain;
+  }
+
+  return devToolsProtocol.domains.find(x => x.domain === domain).types.find(x => x.type === type);
+};
+
+main();

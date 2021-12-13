@@ -13,10 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import add from '../../src/lib';
+/* eslint-disable prefer-template */
+import { Protocol } from 'chrome-remote-interface';
+import protocolJson from 'chrome-remote-interface/lib/protocol.json';
+// because TypeScript, and I can't figure out how to augment json as an ambient module
+const _: Protocol = protocolJson;
+export default _;
 
-describe('example', () => {
-  it('basic truth', () => {
-    expect(add(2, 2)).toEqual(4);
-  });
-});
+// this does not work
+// **devToolsProtocol.d.ts** // mind the .d.ts extension, if trying it out
+// import { Protocol } from 'chrome-remote-interface';
+// declare module 'chrome-remote-interface/lib/protocol.json' {
+//   const _default: Protocol;
+//   export default _default;
+// }

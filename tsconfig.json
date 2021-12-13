@@ -6,9 +6,10 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
-    "baseUrl": "src"
+    "resolveJsonModule": true,
+    "baseUrl": "src",
+    "lib": ["es2019"]
   },
-  "lib": ["es2016"],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "__tests__", "**/*.spec.ts"]
 }

@@ -13,6 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-export default function add(a: number, b: number): number {
-  return a + b;
+
+export function camelOrPascalToKebabCase(str: string): string {
+  return str
+    .split('')
+    .reduce((a, x, i, f) => {
+      const prev = f[i - 1];
+      if (!prev) return x;
+
+      const pair = prev + x;
+
+      // ab, AB - leave as-is
+      if (/([a-z]{2}|[A-Z]{2})/.test(pair)) return a + x;
+
+      // Ab - add dash before A
+      if (/[A-Z][a-z]/.test(pair)) return `${a.substring(0, a.length - 1)}-${prev}${x}`;
+
+      // aB - add dash before B
+      return `${a}-${x}`;
+    }, '')
+    .replace(/--/g, '-') // remove double dashes
+    .replace(/^-/, '') // remove leading dash
+    .toLowerCase();
 }

@@ -16,7 +16,10 @@
 declare module 'koa' {
   interface ExtendableContext {
     // feel free to plug anything that must be available in ctx
-    foo: unknown;
+    cdp: {
+      domain: string;
+      command: string;
+    };
   }
 }
 export {};

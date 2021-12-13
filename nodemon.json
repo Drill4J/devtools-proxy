@@ -7,6 +7,7 @@
   },
   "watch": ["dist/"],
   "env": {
+    "PORT": "8093",
     "PERF_MEASUREMENT_ENABLED": "true",
     "PERF_DIFFS_ENABLED": "true",
     "DEBUG": "example:*",

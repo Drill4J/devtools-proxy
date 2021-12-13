@@ -10,6 +10,7 @@ module.exports = {
   globals: {
     'ts-jest': {
       tsConfig: './test.tsconfig.json',
+      isolatedModules: true,
     },
   },
   collectCoverageFrom: ['src/**', '!**/node_modules/**'],

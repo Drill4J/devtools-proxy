@@ -38,24 +38,30 @@ app.use(createLoggerMiddleware(logger));
 app.use(createResponseHandler(logger)); // router.use(createResponseHandler(logger));
 
 const router = new Router();
-router.get('/', () => ({ message: 'node-typescript-boilerplate API' }));
+router.get('/', () => ({ message: 'V8 DevTools Proxy' }));
 
-router.get('/route-param-example/:id', async (ctx: ExtendableContext & IRouterParamContext) => {
-  return `You've requested ${ctx.params.id}`;
-});
+// router.get('/route-param-example/:id', async (ctx: ExtendableContext & IRouterParamContext) => {
+//   return `You've requested ${ctx.params.id}`;
+// });
 
-router.get(
-  '/middleware-chain-example',
-  async (ctx: ExtendableContext & IRouterParamContext, next: Next) => {
-    ctx.foo = 'info added to ctx';
-    return next();
-  },
-  async (ctx: ExtendableContext & IRouterParamContext) => {
-    return `${ctx.foo} info added by handler`;
-  },
-);
+// router.get(
+//   '/middleware-chain-example',
+//   async (ctx: ExtendableContext & IRouterParamContext, next: Next) => {
+//     ctx.foo = 'info added to ctx';
+//     return next();
+//   },
+//   async (ctx: ExtendableContext & IRouterParamContext) => {
+//     return `${ctx.foo} info added by handler`;
+//   },
+// );
 
-app.use(router.routes());
+export function getRouter(): Router {
+  return router;
+}
+
+export function registerRoutes(): void {
+  app.use(router.routes());
+}
 
 export async function start(): Promise<Server> {
   return new Promise((resolve, reject) => {
