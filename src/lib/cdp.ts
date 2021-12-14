@@ -14,39 +14,107 @@
  * limitations under the License.
  */
 import CDP from 'chrome-remote-interface';
-import { nanoid } from 'nanoid';
 
-const clients = {};
+export default {
+  create,
+  destroy,
+  sendCommand,
+  subscribe,
+  unsubscribe,
+  getEventData: getSubData,
+  list: (): string[] => Object.keys(clients),
+};
 
-function getClients(): string[] {
-  return Object.keys(clients);
+type Client = {
+  id: string;
+  connection: CDP.Client;
+  subscriptions: Record<string, Subscription>;
+};
+
+type Subscription = {
+  handler: (params: unknown) => void;
+  data: unknown[];
+};
+
+const clients: Record<string, Client> = {};
+
+async function create(options: CDP.Options): Promise<void> {
+  const { host, port } = options;
+  const id = getClientId(host, port);
+  clients[id] = { id, connection: await CDP(options), subscriptions: {} };
 }
 
-async function initConnection(
-  options: CDP.Options = {
-    host: 'localhost',
-    port: 9222,
-  },
-): Promise<string> {
-  const id = nanoid();
-  clients[id] = await CDP(options);
-  return id;
+async function destroy(host: string, port: string): Promise<void> {
+  await getClient(host, port).connection.close();
+  const id = getClientId(host, port);
+  delete clients[id];
 }
 
-async function sendCommand(id: string, domainName: string, commandName: string, params: unknown): Promise<unknown> {
+async function sendCommand(
+  host: string,
+  port: string | number,
+  domainName: string,
+  commandName: string,
+  params: unknown,
+): Promise<unknown> {
+  const CDP = getClient(host, port);
+
+  const domain = CDP.connection[domainName];
+  if (!domain) throw new Error(`Domain ${domainName} does not exist`);
+
+  const command = domain[commandName];
+  if (!command) throw new Error(`Command ${commandName} does not exist in ${domainName} domain`);
+
+  return command(params);
+}
+
+// EVENTS
+function subscribe(host: string, port: string, domain: string, event: string): void {
+  const client = getClient(host, port);
+  const name = `${domain}.${event}`;
+
+  const handler = data => {
+    if (!client.subscriptions[name]) {
+      client.subscriptions[name] = {
+        handler,
+        data: [],
+      };
+    }
+    client.subscriptions[name].data.push(data);
+  };
+
+  client.connection.on(name, handler);
+}
+
+function getSubData(host: string, port: string, domain: string, event: string): unknown[] {
+  const client = getClient(host, port);
+  return client.subscriptions[getCdpEventName(domain, event)].data;
+}
+
+function unsubscribe(host: string, port: string, domain: string, event: string): void {
+  const client = getClient(host, port);
+  const name = getCdpEventName(domain, event);
+  delete client.subscriptions[name].data;
   try {
-    const client = clients[id];
-    const domain = client[domainName];
-    const command = domain[commandName];
-    return command(params);
+    (client.connection as any).off(name, client.subscriptions[name].handler);
   } catch (e) {
-    await clients[id].close();
-    throw new Error(`CDP sendCommand error: ${e.message}`);
+    console.log(e);
   }
 }
 
-export default {
-  initConnection,
-  sendCommand,
-  getClients,
-};
+// UTIL
+
+function getCdpEventName(domain, event) {
+  return `${domain}.${event}`;
+}
+
+function getClient(host: string, port: string | number): Client {
+  const id = getClientId(host, port);
+  const client = clients[id];
+  if (!client) throw new Error(`No connection for ${id}`);
+  return client;
+}
+
+function getClientId(host: string, port: string | number) {
+  return `${host}:${port}`;
+}

@@ -16,6 +16,8 @@
 /* eslint-disable prefer-template */
 import { Protocol } from 'chrome-remote-interface';
 import protocolJson from 'chrome-remote-interface/lib/protocol.json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 // because TypeScript, and I can't figure out how to augment json as an ambient module
 const _: Protocol = protocolJson;
 export default _;

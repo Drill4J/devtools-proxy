@@ -21,50 +21,44 @@ import cdp from './lib/cdp';
 import { camelOrPascalToKebabCase } from './lib';
 
 function main() {
-  addDevToolsRoutes(devToolsProtocol)(httpServer.getRouter());
+  const rootRouter = httpServer.getRouter();
+
+  rootRouter.use(createDevtoolsRoutes(devToolsProtocol));
 
   httpServer.registerRoutes();
   httpServer.start();
 }
 
-const addDevToolsRoutes = (protocol: Protocol) => (router: Router) => {
-  const routes = convertDevToolsProtocolToHttpRoutes(protocol);
+function createDevtoolsRoutes(protocol: Protocol): Router.IMiddleware {
+  const router = new Router();
 
+  router.post('/', async ctx => cdp.create(ctx.request.body));
+  router.delete('/', async ctx => cdp.destroy(ctx.request.body.host, ctx.request.body.port));
+
+  // events
+  router.post('/subscribe/:domain/:event', async ctx =>
+    cdp.subscribe(ctx.request.body.host, ctx.request.body.port, ctx.params.domain, ctx.params.event),
+  );
+  router.get('/subscribe/:domain/:event', async ctx =>
+    cdp.getEventData(ctx.request.body.host, ctx.request.body.port, ctx.params.domain, ctx.params.event),
+  );
+  // commands
+  const routes = convertDevToolsProtocolToHttpRoutes(protocol);
   const routesMap = routes.reduce((a, x) => {
     // eslint-disable-next-line no-param-reassign
     a[x.path] = x.meta;
     return a;
   }, {});
-
-  /*
-    POST http://cdp-http-proxy/sessions
-    {
-      host: localhost
-      port: 9222
-    }
-    sessionId + CDP client established connection
-  */
-  router.post('/sessions', async ctx => {
-    return cdp.initConnection(ctx.request.body);
-  });
-
-  /*
-    // https://chromedevtools.github.io/devtools-protocol/
-    POST http://cdp-http-proxy/sessions/:sessionId/:domain/:command
-    {
-      foo: bar
-    }
-  */
   routes.forEach(x =>
-    router.post(`/sessions/:sessionId/${x.path}`, async ctx => {
-      const { sessionId } = ctx.params;
+    router.post(`/${x.path}`, async ctx => {
       const { domain, command } = routesMap[x.path].original;
-      // TODO validate agains protocol schema
-      const params = ctx.request.body;
-      return cdp.sendCommand(sessionId, domain, command, params);
+      const { host, port, ...params } = ctx.request.body; // TODO validate against protocol schema
+      return cdp.sendCommand(host, port, domain, command, params);
     }),
   );
-};
+
+  return router.routes();
+}
 
 // NOTE: had to patch out "type?" property to "string" instead of TypeEnum
 // for TypeElement, Parameter and Items property
@@ -75,7 +69,7 @@ const convertDevToolsProtocolToHttpRoutes = (protocol: Protocol) => {
   return protocol.domains.map(domain => domain.commands.map(commandToRoute(domain.domain))).flat();
 };
 
-export type CDPRouteMetadata = {
+type CDPRouteMetadata = {
   original: {
     domain: any;
     command: string;
