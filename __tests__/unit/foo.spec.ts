@@ -13,13 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-declare module 'koa' {
-  interface ExtendableContext {
-    // koa-respond
-    ok: (arg?: Record<string, any>) => any;
-    notFound: (arg?: Record<string, any>) => any;
-    badRequest: (arg?: Record<string, any>) => any;
-    send: (status: number, arg: Record<string, any>) => any;
-  }
-}
-export {};
+describe('foo is not equal to bar', () => {
+  expect('foo').not.toEqual('bar');
+});

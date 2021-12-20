@@ -13,19 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { CdpClient } from './cdp';
 
-reset();
-
-export function get(): Record<string, string> {
-  return {
-    PORT: '56222',
-    DO_NOT_LAUNCH_HTTP_SERVER_ON_STARTUP: 'true',
-  };
+declare module 'koa' {
+  interface ExtendableContext {
+    // feel free to plug anything that must be available in ctx
+    state: {
+      cdpClient?: CdpClient;
+    };
+  }
 }
-
-export function reset(): void {
-  process.env = {
-    ...process.env,
-    ...get(),
-  };
-}
+export {};

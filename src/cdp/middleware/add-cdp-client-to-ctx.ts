@@ -13,13 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-declare module 'koa' {
-  interface ExtendableContext {
-    // koa-respond
-    ok: (arg?: Record<string, any>) => any;
-    notFound: (arg?: Record<string, any>) => any;
-    badRequest: (arg?: Record<string, any>) => any;
-    send: (status: number, arg: Record<string, any>) => any;
-  }
-}
-export {};
+import { Next, ExtendableContext } from 'koa';
+import { IRouterParamContext } from 'koa-router';
+import { CdpHub } from 'cdp';
+
+export const addCdpClientToCtx =
+  (cdpHub: CdpHub) =>
+  async (ctx: ExtendableContext & IRouterParamContext, next: Next): Promise<any> => {
+    const { host, port, target, ...params } = ctx.request.body;
+    if (!ctx.state) ctx.state = {};
+    ctx.state.cdpClient = cdpHub.getClient(host, port, target);
+    ctx.request.body = params;
+    return next();
+  };

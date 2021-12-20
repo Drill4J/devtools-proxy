@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-declare module 'koa' {
-  interface ExtendableContext {
-    // koa-respond
-    ok: (arg?: Record<string, any>) => any;
-    notFound: (arg?: Record<string, any>) => any;
-    badRequest: (arg?: Record<string, any>) => any;
-    send: (status: number, arg: Record<string, any>) => any;
-  }
-}
-export {};
+import CDP from 'chrome-remote-interface';
+import { ExtendableContext, Next } from 'koa';
+import { IRouterParamContext } from 'koa-router';
+
+export const bodyHasCdpOptions = async (ctx: ExtendableContext & IRouterParamContext, next: Next) => {
+  const { host, port, secure, target }: CDP.Options = ctx.request.body;
+
+  if (!host || !port || !target || secure === undefined)
+    throw new Error(`Request body must contain the following properties: host, port, target, secure`);
+  return next();
+};

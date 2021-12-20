@@ -20,7 +20,6 @@ export default (logger: Logger) =>
   async function (ctx: ExtendableContext, next: Next): Promise<void> {
     try {
       const data = await next();
-      ctx.response.status = 200;
       // remember to "return next()" in __each__ middleware for "data" to be defined
       if (data) {
         ctx.response.body = data;

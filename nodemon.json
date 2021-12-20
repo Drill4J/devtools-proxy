@@ -10,7 +10,7 @@
     "PORT": "8093",
     "PERF_MEASUREMENT_ENABLED": "true",
     "PERF_DIFFS_ENABLED": "true",
-    "DEBUG": "example:*",
+    "DEBUG": "drill:*",
     "DEBUG_COLORS": "true",
     "FORCE_COLOR": "3",
     "DEBUG_LOG_LEVEL": "4"

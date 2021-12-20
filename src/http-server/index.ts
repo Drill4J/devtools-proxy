@@ -18,14 +18,14 @@ import Koa, { ExtendableContext, Next } from 'koa';
 import Router, { IRouterParamContext } from 'koa-router';
 import cors from '@koa/cors';
 import bodyParser from 'koa-bodyparser';
-
-import getLogger from '../util/logger';
+import respond from 'koa-respond';
+import { getLogger } from '../util/logger';
 import createResponseHandler from './middleware/response.handler';
 import createLoggerMiddleware from './middleware/logger';
 
 const { PORT = 80, NODE_ENV, HTTP_SERVER_BODY_JSON_LIMIT = '500mb', HTTP_SERVER_BODY_FORM_LIMIT = '500mb' } = process.env;
 
-const logger = getLogger('example', 'http-server');
+const logger = getLogger('http-server');
 const app = new Koa();
 app.use(
   bodyParser({
@@ -34,32 +34,19 @@ app.use(
   }),
 );
 app.use(cors());
+
+app.use(respond());
 app.use(createLoggerMiddleware(logger));
-app.use(createResponseHandler(logger)); // router.use(createResponseHandler(logger));
+app.use(createResponseHandler(logger));
 
 const router = new Router();
-router.get('/', () => ({ message: 'V8 DevTools Proxy' }));
-
-// router.get('/route-param-example/:id', async (ctx: ExtendableContext & IRouterParamContext) => {
-//   return `You've requested ${ctx.params.id}`;
-// });
-
-// router.get(
-//   '/middleware-chain-example',
-//   async (ctx: ExtendableContext & IRouterParamContext, next: Next) => {
-//     ctx.foo = 'info added to ctx';
-//     return next();
-//   },
-//   async (ctx: ExtendableContext & IRouterParamContext) => {
-//     return `${ctx.foo} info added by handler`;
-//   },
-// );
 
 export function getRouter(): Router {
   return router;
 }
 
-export function registerRoutes(): void {
+export function registerRoutes(responseMessageOnRoot: string): void {
+  router.get('/', () => ({ message: responseMessageOnRoot }));
   app.use(router.routes());
 }
 
@@ -69,6 +56,6 @@ export async function start(): Promise<Server> {
       logger.info(`running at http://localhost:${PORT} in ${NODE_ENV || 'dev'} mode\npress CTRL-C to stop`);
       resolve(server);
     });
-    setTimeout(() => reject(new Error(`bind timeout`)), 10000);
+    setTimeout(() => reject(new Error(`bind timeout - port :${PORT}`)), 10000);
   });
 }

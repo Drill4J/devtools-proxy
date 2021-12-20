@@ -18,47 +18,47 @@ import debug from 'debug';
 import chalk from 'chalk';
 
 export interface Logger {
-  [key: string]: (...args) => void;
+  error: (...args) => void;
+  warning: (...args) => void;
+  info: (...args) => void;
+  debug: (...args) => void;
+  silly: (...args) => void;
 }
 
 const levels = {
-  0: { name: 'error', decoration: chalk.whiteBright, nameDecoration: chalk.whiteBright.bgRedBright },
-  1: { name: 'warning', decoration: chalk.whiteBright, nameDecoration: chalk.black.bgYellowBright },
-  2: { name: 'info', decoration: chalk.white },
-  3: { name: 'debug', decoration: chalk.blueBright },
-  4: { name: 'silly', decoration: chalk.yellow },
+  0: { name: 'error', format: chalk.whiteBright, prefixFormat: chalk.whiteBright.bgRedBright },
+  1: { name: 'warning', format: chalk.whiteBright, prefixFormat: chalk.black.bgYellowBright },
+  2: { name: 'info', format: chalk.white },
+  3: { name: 'note', format: chalk.whiteBright, prefixFormat: chalk.black.bgWhite },
+  4: { name: 'debug', format: chalk.blueBright },
+  5: { name: 'silly', format: chalk.yellow },
 };
 
-export default function getLogger(prefix: string, name: string): Logger {
-  const logFn = debug(`${prefix}:${name}`);
+const prefix = 'drill';
+
+export function getLogger(...names: string[]): Logger {
+  // TODO this is a terrible spaghetti, refactor it
+  const logFn = debug(`${prefix}:${names.join(':')}`);
   const logger = {};
-  Object.keys(levels).forEach(level => {
-    const levelOpts = levels[level];
-    logger[levelOpts.name] = createLogger(level, levelOpts, logFn);
+  const loggingLevel = parseInt(process.env.DEBUG_LOG_LEVEL, 10) || 1;
+  Object.keys(levels).forEach(levelIndex => {
+    const params = levels[levelIndex];
+    logger[params.name] = (...args) => {
+      if (parseInt(levelIndex, 10) <= loggingLevel) {
+        const formattedArgs = args.map(arg => {
+          if (typeof arg === 'object') {
+            return arg;
+          }
+          return params.format(arg);
+        });
+
+        if (params.prefixFormat) {
+          logFn(params.prefixFormat(`${(params.name as string).toUpperCase()}`), ...formattedArgs);
+        } else {
+          logFn(...formattedArgs);
+        }
+      }
+    };
   });
-  return logger;
+  return logger as Logger;
 }
-
-const createLogger = (level, levelOpts, printer) => {
-  let log = printer;
-  if (levelOpts.nameDecoration) {
-    log = (...args) => printer(levelOpts.nameDecoration(`${(levelOpts.name as string).toUpperCase()}`), ...args);
-  }
-
-  const decorateArgs = getDecorator(levelOpts);
-
-  return (...args) => {
-    if (Number(level) > getLoggingLevel()) return;
-    log(...args.map(decorateArgs));
-  };
-};
-
-const getDecorator = levelOpts => arg => {
-  const shouldNotDecorate = typeof arg === 'object';
-  if (shouldNotDecorate) return arg;
-  return levelOpts.decoration(arg);
-};
-
-const getLoggingLevel = () => {
-  return (global as any).logLevel || parseInt(process.env.DEBUG_LOG_LEVEL, 10) || 1;
-};
