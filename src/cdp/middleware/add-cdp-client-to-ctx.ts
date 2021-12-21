@@ -20,9 +20,8 @@ import { CdpHub } from 'cdp';
 export const addCdpClientToCtx =
   (cdpHub: CdpHub) =>
   async (ctx: ExtendableContext & IRouterParamContext, next: Next): Promise<any> => {
-    const { host, port, target, ...params } = ctx.request.body;
+    const { target } = ctx.request.body;
     if (!ctx.state) ctx.state = {};
-    ctx.state.cdpClient = cdpHub.getClient(host, port, target);
-    ctx.request.body = params;
+    ctx.state.cdpClient = cdpHub.getClient(target);
     return next();
   };

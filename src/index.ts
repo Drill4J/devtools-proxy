@@ -64,7 +64,7 @@ function createDevtoolsRoutes(protocol: Protocol): Router.IMiddleware {
   clientRouter.use(bodyHasCdpOptions).use(addCdpClientToCtx(cdpHub));
   // execute command
   clientRouter.post('/command/:domain.:command', async (ctx: ExtendableContext & IRouterParamContext) => {
-    const data = await ctx.state.cdpClient.executeCommand(ctx.params.domain, ctx.params.command, ctx.request.body);
+    const data = await ctx.state.cdpClient.executeCommand(ctx.params.domain, ctx.params.command, ctx.request.body?.params);
     ctx.ok(data);
   });
   // sub/get/data/unsub from event

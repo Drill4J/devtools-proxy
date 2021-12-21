@@ -39,8 +39,8 @@ export class CdpClient {
   constructor(options: CDP.Options) {
     this.options = options;
     this.ready = this.init(options);
-    const { host, port, target } = options;
-    this.logger = getLogger('client', host, port.toString(), target as string);
+    const { target } = options;
+    this.logger = getLogger('client', target as string);
   }
 
   private async init(options: CDP.Options) {
@@ -61,15 +61,6 @@ export class CdpClient {
     this.isConnectionOpen = false;
   }
 
-  async target(str: string) {
-    return this.connection[str]();
-  }
-
-  ensureConnection() {
-    const { host, port, target } = this.options;
-    if (!this.isConnectionOpen) throw new Error(`client at ${host}:${port}/${target} is not connected`);
-  }
-
   async executeCommand(domainName: string, commandName: string, params: unknown): Promise<unknown> {
     const domain = this.connection[domainName];
     if (!domain) throw new Error(`Domain ${domainName} does not exist`);
@@ -79,7 +70,7 @@ export class CdpClient {
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    return this.connection.send(`${domainName}.${commandName}`, params, this.options.target);
+    return this.connection.send(`${domainName}.${commandName}`, params);
   }
 
   // https://chromedevtools.github.io/devtools-protocol/#endpoints
@@ -92,7 +83,7 @@ export class CdpClient {
   }
 
   subscribeToEvent(domain: string, event: string): void {
-    const name = `${domain}.${event}.${this.options.target}`;
+    const name = `${domain}.${event}`;
 
     const handler = data => {
       this.subscriptions[name].data.push(data);
@@ -134,9 +125,7 @@ export class CdpHub {
   private clients: Record<string, CdpClient> = {};
 
   async addClient(options: CDP.Options): Promise<void> {
-    const { host, port, target } = options;
-    const id = this.getClientId(host, port, target as string);
-    this.clients[id] = await new CdpClient(options).ready;
+    this.clients[options.target as string] = await new CdpClient(options).ready;
   }
 
   async removeClient(options: CDP.Options) {
@@ -151,14 +140,9 @@ export class CdpHub {
     return Object.values(this.clients).map(client => client.options);
   }
 
-  private getClientId(host: string, port: string | number, target: string) {
-    return `${host}:${port}/${target}`;
-  }
-
-  getClient(host: string, port: string | number, target: string): CdpClient {
-    const id = this.getClientId(host, port, target);
-    const client = this.clients[id];
-    if (!client) throw new Error(`No connection at "${id}"`);
+  getClient(target: string): CdpClient {
+    const client = this.clients[target];
+    if (!client) throw new Error(`No connection to target ${target}"`);
     return client;
   }
 }

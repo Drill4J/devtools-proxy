@@ -23,7 +23,7 @@ import { getLogger } from '../util/logger';
 import createResponseHandler from './middleware/response.handler';
 import createLoggerMiddleware from './middleware/logger';
 
-const { PORT = 80, NODE_ENV, HTTP_SERVER_BODY_JSON_LIMIT = '500mb', HTTP_SERVER_BODY_FORM_LIMIT = '500mb' } = process.env;
+const { PORT = 8080, NODE_ENV, HTTP_SERVER_BODY_JSON_LIMIT = '500mb', HTTP_SERVER_BODY_FORM_LIMIT = '500mb' } = process.env;
 
 const logger = getLogger('http-server');
 const app = new Koa();

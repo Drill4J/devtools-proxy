@@ -18,9 +18,8 @@ import { ExtendableContext, Next } from 'koa';
 import { IRouterParamContext } from 'koa-router';
 
 export const bodyHasCdpOptions = async (ctx: ExtendableContext & IRouterParamContext, next: Next) => {
-  const { host, port, secure, target }: CDP.Options = ctx.request.body;
+  const { target }: CDP.Options = ctx.request.body;
 
-  if (!host || !port || !target || secure === undefined)
-    throw new Error(`Request body must contain the following properties: host, port, target, secure`);
+  if (!target) throw new Error(`Request body must contain the "target"`);
   return next();
 };
