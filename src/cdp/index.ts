@@ -28,6 +28,8 @@ export class CdpClient {
 
   private subscriptions: Record<string, Subscription> = {};
 
+  private eventsData: Record<string, any> = {};
+
   public ready: Promise<CdpClient>;
 
   public options: CDP.Options;
@@ -48,6 +50,8 @@ export class CdpClient {
     this.connection.on('disconnect', (...args) => {
       this.logger.info('disconnected');
     });
+
+    this.connection.on('event', this.handleEvent.bind(this));
 
     return this;
   }
@@ -76,45 +80,27 @@ export class CdpClient {
     return response.data;
   }
 
-  subscribeToEvent(domain: string, event: string, sessionId?: string): void {
-    const name = this.getCdpEventName(domain, event, sessionId);
+  private handleEvent(message: CDP.EventMessage) {
+    const { method, params, sessionId } = message;
+    this.logger.debug(`event ${method} ${sessionId || ''}`);
 
-    const handler = data => {
-      this.subscriptions[name].data.push(data);
-    };
-
-    if (!this.subscriptions[name]) {
-      this.subscriptions[name] = {
-        handler,
-        data: [],
-      };
+    const key = this.getEventKey(method, sessionId);
+    if (!Array.isArray(this.eventsData[key])) {
+      this.eventsData[key] = [];
     }
 
-    this.connection.on(name, handler);
+    this.eventsData[key].push(params);
   }
 
   getEventData(domain: string, event: string, sessionId?: string): unknown[] {
-    const name = this.getCdpEventName(domain, event, sessionId);
-    const subscription = this.subscriptions[name];
-    if (!subscription) throw new Error(`No subscription for event ${name}`);
-    return subscription.data;
+    // domain + '.' + event = method (in CDP terms)
+    const key = this.getEventKey(`${domain}.${event}`, sessionId);
+    // FIXME clear this.eventsData[key] to avoid OOM ???
+    return this.eventsData[key] || [];
   }
 
-  unsubscribeFromEvent(domain: string, event: string, sessionId?: string): void {
-    const name = this.getCdpEventName(domain, event, sessionId);
-    delete this.subscriptions[name].data;
-    try {
-      (this.connection as any).off(name, this.subscriptions[name].handler);
-    } catch (e) {
-      this.logger.error(e?.message);
-    }
-  }
-
-  private getCdpEventName(domain: string, event: string, sessionId: string) {
-    if (sessionId) {
-      return `${domain}.${event}.${sessionId}`;
-    }
-    return `${domain}.${event}`;
+  private getEventKey(method, sessionId) {
+    return `${method} ${sessionId || ''}`;
   }
 }
 
@@ -127,9 +113,6 @@ export class CdpHub {
 
   async removeClient(options: CDP.Options): Promise<void> {
     await this.clients[options.target as string].disconnect();
-    // const id = this.getClientId(host, port, target as string);
-    // await this.clients[id].disconnect();
-    // delete this.clients[id];
   }
 
   listClients(): CDP.Options[] {
