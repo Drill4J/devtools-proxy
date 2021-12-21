@@ -34,8 +34,6 @@ export class CdpClient {
 
   private logger: Logger;
 
-  private isConnectionOpen = false; // TODO find the respective property in CDP client instance
-
   constructor(options: CDP.Options) {
     this.options = options;
     this.ready = this.init(options);
@@ -48,29 +46,25 @@ export class CdpClient {
     this.logger.info('connected');
 
     this.connection.on('disconnect', (...args) => {
-      this.isConnectionOpen = false;
       this.logger.info('disconnected');
     });
 
-    this.isConnectionOpen = true;
     return this;
   }
 
-  public async disconnect() {
+  async disconnect(): Promise<void> {
     await this.connection.close();
-    this.isConnectionOpen = false;
   }
 
-  async executeCommand(domainName: string, commandName: string, params: unknown): Promise<unknown> {
-    const domain = this.connection[domainName];
-    if (!domain) throw new Error(`Domain ${domainName} does not exist`);
-
-    const command = domain[commandName];
-    if (!command) throw new Error(`Command ${commandName} does not exist in ${domainName} domain`);
-
+  async executeCommand(
+    domainName: string,
+    commandName: string,
+    options: { sessionId?: string; params: Record<string, any> },
+  ): Promise<unknown> {
+    const { sessionId, params } = options;
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    return this.connection.send(`${domainName}.${commandName}`, params);
+    return this.connection.send(`${domainName}.${commandName}`, params, sessionId);
   }
 
   // https://chromedevtools.github.io/devtools-protocol/#endpoints
@@ -82,8 +76,8 @@ export class CdpClient {
     return response.data;
   }
 
-  subscribeToEvent(domain: string, event: string): void {
-    const name = `${domain}.${event}`;
+  subscribeToEvent(domain: string, event: string, sessionId?: string): void {
+    const name = this.getCdpEventName(domain, event, sessionId);
 
     const handler = data => {
       this.subscriptions[name].data.push(data);
@@ -99,15 +93,15 @@ export class CdpClient {
     this.connection.on(name, handler);
   }
 
-  getEventData(domain: string, event: string): unknown[] {
-    const name = this.getCdpEventName(domain, event);
+  getEventData(domain: string, event: string, sessionId?: string): unknown[] {
+    const name = this.getCdpEventName(domain, event, sessionId);
     const subscription = this.subscriptions[name];
     if (!subscription) throw new Error(`No subscription for event ${name}`);
     return subscription.data;
   }
 
-  unsubscribeFromEvent(domain: string, event: string): void {
-    const name = this.getCdpEventName(domain, event);
+  unsubscribeFromEvent(domain: string, event: string, sessionId?: string): void {
+    const name = this.getCdpEventName(domain, event, sessionId);
     delete this.subscriptions[name].data;
     try {
       (this.connection as any).off(name, this.subscriptions[name].handler);
@@ -116,7 +110,10 @@ export class CdpClient {
     }
   }
 
-  private getCdpEventName(domain, event) {
+  private getCdpEventName(domain: string, event: string, sessionId: string) {
+    if (sessionId) {
+      return `${domain}.${event}.${sessionId}`;
+    }
     return `${domain}.${event}`;
   }
 }
@@ -128,9 +125,8 @@ export class CdpHub {
     this.clients[options.target as string] = await new CdpClient(options).ready;
   }
 
-  async removeClient(options: CDP.Options) {
-    throw new Error('Not implemented! Yet');
-    // const { host, port, target } = options;
+  async removeClient(options: CDP.Options): Promise<void> {
+    await this.clients[options.target as string].disconnect();
     // const id = this.getClientId(host, port, target as string);
     // await this.clients[id].disconnect();
     // delete this.clients[id];
