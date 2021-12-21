@@ -16,14 +16,6 @@ module.exports = {
           {
             loader: 'ts-loader',
           },
-          // NOTE: it messes up sourcemaps
-          // {
-          //   loader: 'webpack-strip-block',
-          //   options: {
-          //     start: 'testblock:start',
-          //     end: 'testblock:end',
-          //   },
-          // },
         ],
       },
     ],
