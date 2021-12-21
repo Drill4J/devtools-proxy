@@ -3,7 +3,6 @@
   "description": "",
   "author": "",
   "scripts": {
-    "prebuild": "eslint . --ext .ts && rm -rf dist",
     "start": "node ./dist/index.js",
     "build": "cross-env NODE_ENV=production webpack -c webpack.config.js",
     "predev": "npm run build",
