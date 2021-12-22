@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 /* eslint-disable max-classes-per-file */
+import { URL } from 'url';
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { Protocol as DevtoolsProtocol } from 'devtools-protocol'; // not listed in package.json, dependency of chrome-remote-interface
 import CDP from 'chrome-remote-interface';
 import axios from 'axios';
 import { getLogger, Logger } from '../util/logger';
@@ -23,6 +26,7 @@ type Subscription = {
   data: unknown[];
 };
 
+type QueryParamsObject = Record<string, string>;
 export class CdpClient {
   private connection: CDP.Client;
 
@@ -35,6 +39,8 @@ export class CdpClient {
   public options: CDP.Options;
 
   private logger: Logger;
+
+  private requestInterceptor: (params: DevtoolsProtocol.Fetch.RequestPausedEvent) => Promise<void>;
 
   constructor(options: CDP.Options) {
     this.options = options;
@@ -101,6 +107,71 @@ export class CdpClient {
 
   private getEventKey(method, sessionId) {
     return `${method} ${sessionId || ''}`;
+  }
+
+  async stopIntercepting(options: { sessionId: string }) {
+    const { sessionId } = options;
+    if (this.requestInterceptor) {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      this.connection.off(`Fetch.requestPaused.${sessionId}`, this.requestInterceptor);
+    }
+    await this.connection.send('Fetch.disable', undefined, sessionId);
+  }
+
+  async intercept(options: { sessionId: string; params: { query: QueryParamsObject } }): Promise<void> {
+    const {
+      sessionId,
+      params: { query },
+    } = options;
+
+    if (this.requestInterceptor) {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      this.connection.off(`Fetch.requestPaused.${sessionId}`, this.requestInterceptor);
+    }
+
+    this.requestInterceptor = async (params: DevtoolsProtocol.Fetch.RequestPausedEvent) => {
+      const { request, requestId } = params;
+
+      const { url, urlFragment } = request;
+
+      const injectedUrl = inject(url, query); // FIXME do not inject drill params for cross-origin requests?
+      await this.connection.send(
+        'Fetch.continueRequest',
+        {
+          requestId,
+          url: injectedUrl,
+        },
+        sessionId,
+      );
+    };
+
+    this.connection.on(`Fetch.requestPaused.${sessionId}`, this.requestInterceptor);
+    // FIXME url pattern?
+    await this.connection.send('Fetch.enable', {}, sessionId); // FIXME handle auth this.connection.on('Fetch.authRequired', (params) => {})
+
+    // functions
+    const inject = (url: string, query: QueryParamsObject) => {
+      const alreadyInjected = Object.keys(query).some(name => url.includes(encodeURIComponent(name))); // FIXME some vs every ?
+      if (alreadyInjected) return url;
+
+      const queryStr = Object.entries(query)
+        .map(([name, value]) => `${encodeURIComponent(name)}=${encodeURIComponent(value)}`)
+        .join('&');
+
+      return appendQueryParams(url, queryStr);
+    };
+
+    const appendQueryParams = (url: string, toAppend: string) => {
+      const parsedUrl = new URL(url);
+      if (parsedUrl.search) {
+        parsedUrl.search = `${parsedUrl.search}&${toAppend}`;
+      } else {
+        parsedUrl.search = `?${toAppend}`;
+      }
+      return parsedUrl.toString();
+    };
   }
 }
 
