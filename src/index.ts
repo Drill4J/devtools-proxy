@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Command, Protocol, Parameter } from 'chrome-remote-interface';
+import CDP, { Command, Protocol, Parameter } from 'chrome-remote-interface';
 import axios from 'axios';
 import Router, { IRouterParamContext } from 'koa-router';
 import { ExtendableContext } from 'koa';
 import * as httpServer from './http-server';
 import devToolsProtocol from './cdp/dev-tools-protocol';
-import cdpHub from './cdp';
+import cdpHub, { getDevtoolsVersionJson, resolveDebuggerUrl } from './cdp';
 import { addCdpClientToCtx } from './cdp/middleware/add-cdp-client-to-ctx';
 import { bodyHasCdpOptions } from './cdp/middleware/body-has-cdp-options';
 
@@ -36,14 +36,29 @@ main();
 function createDevtoolsRoutes(protocol: Protocol): Router.IMiddleware {
   const router = new Router();
 
-  // See https://chromedevtools.github.io/devtools-protocol/#endpoints
-  router.post('/request-http-endpoint', async (ctx: ExtendableContext & IRouterParamContext) => {
-    const { host, port, path, secure } = ctx.request.body;
-    if (!host || !port || !path) throw new Error('Request body must contain "host", "port", and "path"');
-    const stripLeadingSlash = (str: string) => str.replace(/^\//, '');
-    const url = `${secure ? 'https' : 'http'}://${host}:${port}/${stripLeadingSlash(path)}`;
-    const response = await axios.get(url);
-    ctx.ok(response.data);
+  // See https://chromedevtools.github.io/devtools-protocol/#get-jsonversion
+  router.post('/get-devtools-version-json', async (ctx: ExtendableContext & IRouterParamContext) => {
+    const { host, port, secure = false, useHostName }: CDP.BaseOptions = ctx.request.body;
+    if (!host || !port)
+      throw new Error(
+        "Specify host and port of DevTools API in request's body.\n" +
+          'Optional:\n' +
+          '-pass "secure": true to connect with https\n' +
+          '-pass "useHostName": true to bypass dns lookup',
+      );
+
+    // eslint-disable-next-line max-len
+    // See https://github.com/DefinitelyTyped/DefinitelyTyped/blob/a1260a1f3d40f239b53fd29effba594b0d1bee08/types/chrome-remote-interface/index.d.ts#L12
+    const versionJson = await getDevtoolsVersionJson({ host, port, secure, useHostName });
+    ctx.ok(versionJson);
+  });
+
+  router.post('/resolve-debugger-url', async (ctx: ExtendableContext & IRouterParamContext) => {
+    const { webSocketDebuggerUrl } = ctx.request.body;
+    if (!webSocketDebuggerUrl) throw new Error("Specify webSocketDebuggerUrl in request's body");
+
+    const resolvedUrl = await resolveDebuggerUrl(webSocketDebuggerUrl);
+    ctx.ok({ webSocketDebuggerUrl: resolvedUrl });
   });
 
   router.post('/connection', bodyHasCdpOptions, async (ctx: ExtendableContext & IRouterParamContext) => {

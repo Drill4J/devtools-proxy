@@ -1,9 +1,10 @@
 version: '3'
 services:
   proxy:
+    image: drill4j/devtools-proxy:0.0.4
     build: ./
     ports:
-      - '8080:8080'
+      - '8093:8080'
     environment:
       DEBUG: 'drill:*'
       DEBUG_COLORS: 'true'

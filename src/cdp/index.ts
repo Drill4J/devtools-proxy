@@ -18,7 +18,6 @@ import { URL } from 'url';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { Protocol as DevtoolsProtocol } from 'devtools-protocol'; // not listed in package.json, dependency of chrome-remote-interface
 import CDP from 'chrome-remote-interface';
-import axios from 'axios';
 import { getLogger, Logger } from '../util/logger';
 
 type Subscription = {
@@ -75,15 +74,6 @@ export class CdpClient {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     return this.connection.send(`${domainName}.${commandName}`, params, sessionId);
-  }
-
-  // https://chromedevtools.github.io/devtools-protocol/#endpoints
-  async sendHttpGet(path: string): Promise<unknown> {
-    const { host, port, secure } = this.options;
-    const stripLeadingSlash = (str: string) => str.replace(/^\//, '');
-    const url = `${secure ? 'https' : 'http'}://${host}:${port}/${stripLeadingSlash(path)}`;
-    const response = await axios.get(url);
-    return response.data;
   }
 
   private handleEvent(message: CDP.EventMessage) {
@@ -195,6 +185,22 @@ export class CdpHub {
     if (!client) throw new Error(`No connection to target ${target}"`);
     return client;
   }
+}
+
+export function getDevtoolsVersionJson(options: CDP.BaseOptions): Promise<CDP.VersionResult> {
+  return CDP.Version(options);
+}
+
+export async function resolveDebuggerUrl(webSocketDebuggerUrl: string): Promise<string> {
+  const matches = /(wss?):\/\/(.+):(\d+)\/devtools\/browser\//.exec(webSocketDebuggerUrl);
+
+  if (!matches) throw new Error('Passed "webSocketDebuggerUrl" value does not seem to be a valid DevTools debugging url');
+
+  const [_, protocol, host, portStr] = matches;
+  const secure = protocol === 'wss';
+  const port = Number(portStr);
+  const versionJson = await CDP.Version({ host, port, secure });
+  return versionJson.webSocketDebuggerUrl;
 }
 
 const hub = new CdpHub();
