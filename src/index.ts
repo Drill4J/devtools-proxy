@@ -87,7 +87,7 @@ function createDevtoolsRoutes(protocol: Protocol): Router.IMiddleware {
     await ctx.state.cdpClient.stopIntercepting(ctx.request.body);
     ctx.ok();
   });
-  clientRouter.get('/event/:domain.:event', async (ctx: ExtendableContext & IRouterParamContext) => {
+  clientRouter.post('/event/:domain.:event', async (ctx: ExtendableContext & IRouterParamContext) => {
     const data = ctx.state.cdpClient.getEventData(ctx.params.domain, ctx.params.event, ctx.request.body?.sessionId);
     ctx.ok(data);
   });
