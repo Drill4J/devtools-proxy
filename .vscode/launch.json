@@ -13,7 +13,10 @@
       "program": "${workspaceFolder}/dist/index.js",
       "restart": true,
       "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "PORT": "8093"
+      }
     },
     {
       "type": "node",
