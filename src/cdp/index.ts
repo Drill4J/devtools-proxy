@@ -63,6 +63,7 @@ export class CdpClient {
 
   async disconnect(): Promise<void> {
     await this.connection.close();
+    this.eventsData = undefined;
   }
 
   async executeCommand(
@@ -91,8 +92,12 @@ export class CdpClient {
   getEventData(domain: string, event: string, sessionId?: string): unknown[] {
     // domain + '.' + event = method (in CDP terms)
     const key = this.getEventKey(`${domain}.${event}`, sessionId);
-    // FIXME clear this.eventsData[key] to avoid OOM ???
-    return this.eventsData[key] || [];
+    const result = this.eventsData[key];
+    if (!result) {
+      return [];
+    }
+    this.eventsData[key] = [];
+    return result;
   }
 
   private getEventKey(method, sessionId) {
@@ -174,6 +179,7 @@ export class CdpHub {
 
   async removeClient(options: CDP.Options): Promise<void> {
     await this.clients[options.target as string].disconnect();
+    delete this.clients[options.target as string];
   }
 
   listClients(): CDP.Options[] {
