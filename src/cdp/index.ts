@@ -49,6 +49,16 @@ export class CdpClient {
   }
 
   private async init(options: CDP.Options) {
+    // force chrome-remote-interface to load Chrome Devtools Protocol JSON schema from _local file_
+    // Why:
+    //  1. it's hard to obtain /json/protocol from various webdriver implementations (selenium standalone/selenoid/etc)
+    //  2. it likely won't change too often anyway and _will_ break in obvious way
+    //  3. once it happen we shoud be able to fix it with either
+    //    - chrome-remote-interface version bump
+    //    - or manuall protocol.json replacement
+    // eslint-disable-next-line no-param-reassign
+    options.local = true;
+
     this.connection = await CDP(options);
     this.logger.info('connected');
 
