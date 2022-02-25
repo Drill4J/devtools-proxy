@@ -29,8 +29,6 @@ type QueryParamsObject = Record<string, string>;
 export class CdpClient {
   private connection: CDP.Client;
 
-  private subscriptions: Record<string, Subscription> = {};
-
   private eventsData: Record<string, any> = {};
 
   public ready: Promise<CdpClient>;
@@ -43,9 +41,8 @@ export class CdpClient {
 
   constructor(options: CDP.Options) {
     this.options = options;
+    this.logger = getLogger('client', (options as any).target);
     this.ready = this.init(options);
-    const { target } = options;
-    this.logger = getLogger('client', target as string);
   }
 
   private async init(options: CDP.Options) {
@@ -201,22 +198,6 @@ export class CdpHub {
     if (!client) throw new Error(`No connection to target ${target}"`);
     return client;
   }
-}
-
-export function getDevtoolsVersionJson(options: CDP.BaseOptions): Promise<CDP.VersionResult> {
-  return CDP.Version(options);
-}
-
-export async function resolveDebuggerUrl(webSocketDebuggerUrl: string): Promise<string> {
-  const matches = /(wss?):\/\/(.+):(\d+)\/devtools\/browser\//.exec(webSocketDebuggerUrl);
-
-  if (!matches) throw new Error('Passed "webSocketDebuggerUrl" value does not seem to be a valid DevTools debugging url');
-
-  const [_, protocol, host, portStr] = matches;
-  const secure = protocol === 'wss';
-  const port = Number(portStr);
-  const versionJson = await CDP.Version({ host, port, secure });
-  return versionJson.webSocketDebuggerUrl;
 }
 
 const hub = new CdpHub();
