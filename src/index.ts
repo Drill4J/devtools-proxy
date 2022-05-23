@@ -60,8 +60,16 @@ function createRoutes(): Router.IMiddleware {
     ctx.ok();
   });
   clientRouter.post('/event/:domain.:event', async (ctx: ExtendableContext & IRouterParamContext) => {
+    ctx.state.cdpClient.recordEventData(ctx.params.domain, ctx.params.event, ctx.request.body?.sessionId);
+    ctx.ok();
+  });
+  clientRouter.post('/event/:domain.:event/get-data', async (ctx: ExtendableContext & IRouterParamContext) => {
     const data = ctx.state.cdpClient.getEventData(ctx.params.domain, ctx.params.event, ctx.request.body?.sessionId);
     ctx.ok(data);
+  });
+  clientRouter.delete('/event/:domain.:event', async (ctx: ExtendableContext & IRouterParamContext) => {
+    ctx.state.cdpClient.stopRecordingEventData(ctx.params.domain, ctx.params.event, ctx.request.body?.sessionId);
+    ctx.ok();
   });
   router.use(clientRouter.routes());
   return router.routes();

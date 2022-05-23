@@ -20,14 +20,18 @@ import { Protocol as DevtoolsProtocol } from 'devtools-protocol'; // not listed 
 // eslint-disable-next-line import/no-extraneous-dependencies
 import ProtocolMapping from 'devtools-protocol/types/protocol-mapping';
 import CDP from 'chrome-remote-interface';
+import isEmpty from 'lodash.isempty';
 import { getLogger, Logger } from '../util/logger';
 import { timeout } from '../util/timeout';
 
 type QueryParamsObject = Record<string, string>;
+
 export class CdpClient {
   private connection: CDP.Client;
 
   private eventsData: Record<string, any> = {};
+
+  private eventsToRecord: Map<string, boolean> = new Map();
 
   public ready: Promise<CdpClient>;
 
@@ -88,22 +92,36 @@ export class CdpClient {
     this.logger.debug(`event ${method} ${sessionId || ''}`);
 
     const key = this.getEventKey(method, sessionId);
-    if (!Array.isArray(this.eventsData[key])) {
-      this.eventsData[key] = [];
-    }
+    if (!this.eventsToRecord.has(key)) return;
 
     this.eventsData[key].push(params);
   }
 
+  recordEventData(domain: string, event: string, sessionId?: string): void {
+    const key = this.getEventKey(this.getMethodKey(domain, event), sessionId);
+    if (this.eventsToRecord.has(key)) return; // do nothing, since we're already recording it
+
+    this.eventsToRecord.set(key, true);
+    this.eventsData[key] = [];
+  }
+
+  stopRecordingEventData(domain: string, event: string, sessionId?: string): void {
+    const key = this.getEventKey(this.getMethodKey(domain, event), sessionId);
+    this.eventsToRecord.delete(key);
+    delete this.eventsData[key];
+  }
+
   getEventData(domain: string, event: string, sessionId?: string): unknown[] {
-    // domain + '.' + event = method (in CDP terms)
-    const key = this.getEventKey(`${domain}.${event}`, sessionId);
+    const key = this.getEventKey(this.getMethodKey(domain, event), sessionId);
     const result = this.eventsData[key];
-    if (!result) {
-      return [];
-    }
+    if (!result) return [];
     this.eventsData[key] = [];
     return result;
+  }
+
+  private getMethodKey(domain: string, event: string): string {
+    // domain + '.' + event = method (in CDP terms)
+    return `${domain}.${event}`;
   }
 
   private getEventKey(method, sessionId) {
