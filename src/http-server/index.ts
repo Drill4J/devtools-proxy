@@ -35,7 +35,13 @@ app.use(
 );
 app.use(cors());
 
-app.use(respond());
+app.use(
+  respond({
+    statusMethods: {
+      timeout: 408,
+    },
+  }),
+);
 app.use(createLoggerMiddleware(logger));
 app.use(createResponseHandler(logger));
 

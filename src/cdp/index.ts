@@ -17,13 +17,11 @@
 import { URL } from 'url';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { Protocol as DevtoolsProtocol } from 'devtools-protocol'; // not listed in package.json, dependency of chrome-remote-interface
+// eslint-disable-next-line import/no-extraneous-dependencies
+import ProtocolMapping from 'devtools-protocol/types/protocol-mapping';
 import CDP from 'chrome-remote-interface';
 import { getLogger, Logger } from '../util/logger';
-
-type Subscription = {
-  handler: (params: unknown) => void;
-  data: unknown[];
-};
+import { timeout } from '../util/timeout';
 
 type QueryParamsObject = Record<string, string>;
 export class CdpClient {
@@ -78,10 +76,11 @@ export class CdpClient {
     commandName: string,
     options: { sessionId?: string; params: Record<string, any> },
   ): Promise<unknown> {
-    const { sessionId, params } = options;
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    return this.connection.send(`${domainName}.${commandName}`, params, sessionId);
+    const { params, sessionId } = options;
+    return Promise.race([
+      timeout(Number(process.env.COMMAND_TIMEOUT_MS) || 15000),
+      this.connection.send(`${domainName}.${commandName}` as keyof ProtocolMapping.Commands, params, sessionId),
+    ]);
   }
 
   private handleEvent(message: CDP.EventMessage) {

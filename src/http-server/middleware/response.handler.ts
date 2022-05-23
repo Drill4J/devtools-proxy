@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 import { ExtendableContext, Next } from 'koa';
+import { TimeoutError } from '../../util/timeout';
 import { Logger } from '../../util/logger';
 
 export default (logger: Logger) =>
@@ -25,6 +26,13 @@ export default (logger: Logger) =>
         ctx.response.body = data;
       }
     } catch (e) {
+      if (e instanceof TimeoutError) {
+        const msg = `${e.message} - request: ${ctx.request.method} ${ctx.request.path}`;
+        logger.warning(msg);
+        (ctx as any).timeout(e.message);
+        return;
+      }
+
       logger.error('%O', e);
       ctx.response.status = e.status || 500;
       ctx.response.body = { message: e?.message || 'INTERNAL_SERVER_ERROR' };
