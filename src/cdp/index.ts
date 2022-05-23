@@ -138,10 +138,10 @@ export class CdpClient {
     await this.connection.send('Fetch.disable', undefined, sessionId);
   }
 
-  async intercept(options: { sessionId: string; params: { query: QueryParamsObject } }): Promise<void> {
+  async intercept(options: { sessionId: string; params: { query: QueryParamsObject; headers: Record<string, string> } }): Promise<void> {
     const {
       sessionId,
-      params: { query },
+      params: { query: queryParamsToInject, headers: headersToInject },
     } = options;
 
     if (this.requestInterceptor) {
@@ -153,22 +153,43 @@ export class CdpClient {
     this.requestInterceptor = async (params: DevtoolsProtocol.Fetch.RequestPausedEvent) => {
       const { request, requestId } = params;
 
-      const { url, urlFragment } = request;
+      const { url: originalUrl, headers: originalHeaders } = request;
 
-      const injectedUrl = inject(url, query); // FIXME do not inject drill params for cross-origin requests?
-      await this.connection.send(
-        'Fetch.continueRequest',
-        {
-          requestId,
-          url: injectedUrl,
-        },
-        sessionId,
-      );
+      const continueRequestOptions: DevtoolsProtocol.Fetch.ContinueRequestRequest = { requestId };
+      if (!isEmpty(queryParamsToInject)) {
+        continueRequestOptions.url = inject(originalUrl, queryParamsToInject);
+      }
+
+      if (!isEmpty(headersToInject)) {
+        const headersObject = { ...originalHeaders, ...headersToInject };
+        continueRequestOptions.headers = Object.entries(headersObject).map(([name, value]) => ({ name, value }));
+      }
+
+      try {
+        await this.connection.send('Fetch.continueRequest', continueRequestOptions, sessionId);
+      } catch (e) {
+        this.logger.warning('Failed to continue intercepted request', JSON.stringify(request));
+      }
     };
 
     this.connection.on(`Fetch.requestPaused.${sessionId}`, this.requestInterceptor);
-    // FIXME url pattern?
-    await this.connection.send('Fetch.enable', {}, sessionId); // FIXME handle auth this.connection.on('Fetch.authRequired', (params) => {})
+
+    const fetchEnableOptions: DevtoolsProtocol.Fetch.EnableRequest = {
+      // Intercept only resources we are "interested" in
+      // See https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#type-RequestPattern
+      // TODO: adding urlPattern might also allow to solve issues with unwanted requests injection to external cross-origin resources
+      patterns: ['Document', 'XHR', 'Fetch'].map((x: any) => ({ resourceType: x })),
+      // We assume that auth requests are injected with session & test ids via Network.setExtraHTTPHeaders
+      handleAuthRequests: false,
+    };
+
+    if (process.env.FETCH_INTERCEPTED_RESOURCE_TYPES) {
+      fetchEnableOptions.patterns = process.env.FETCH_INTERCEPTED_RESOURCE_TYPES.trim()
+        .split(/,\s*/g)
+        .map((x: any) => ({ resourceType: x }));
+    }
+
+    await this.connection.send('Fetch.enable', fetchEnableOptions, sessionId);
 
     // functions
     const inject = (url: string, query: QueryParamsObject) => {
